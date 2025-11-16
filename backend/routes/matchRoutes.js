@@ -13,7 +13,7 @@ function calculateCompatibility(aTraits = {}, bTraits = {}) {
   let compared = 0;
 
   for (const key of keys) {
-    if (bTraits.hasOwnProperty(key)) {
+    if (Object.prototype.hasOwnProperty.call(bTraits, key)) {
       compared++;
       if (aTraits[key] === bTraits[key]) matches++;
     }
@@ -29,13 +29,15 @@ router.get("/recommendations", async (req, res) => {
 
   try {
     // 1️⃣ Lấy traits của user hiện tại từ bảng profiles
-    const { data: myProfile, error: myErr } = await supabase
+    const { data: myProfiles, error: myErr } = await supabase
       .from("profiles")
       .select("traits")
       .eq("id", userId)
-      .single();
+      .limit(1); // ✅ tránh lỗi Cannot coerce the result to a single JSON object
 
     if (myErr) throw myErr;
+
+    const myProfile = myProfiles?.[0] || null;
     const myTraits = myProfile?.traits || {};
 
     // 2️⃣ Lấy toàn bộ người dùng khác (và traits của họ)
@@ -47,10 +49,12 @@ router.get("/recommendations", async (req, res) => {
     if (othersErr) throw othersErr;
 
     // 3️⃣ Lấy danh sách người mà user này đã like
-    const { data: likes } = await supabase
+    const { data: likes, error: likesErr } = await supabase
       .from("likes")
       .select("to_user")
       .eq("from_user", userId);
+
+    if (likesErr) throw likesErr;
 
     const likedIds = likes?.map((l) => l.to_user) || [];
 
